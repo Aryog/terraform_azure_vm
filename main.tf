@@ -1,3 +1,4 @@
+
 provider "azurerm" {
   features {}
   subscription_id = "1e73b6f5-c581-4e6e-8242-031715ffa1e7"
@@ -50,51 +51,23 @@ resource "azurerm_subnet_network_security_group_association" "example" {
   network_security_group_id = azurerm_network_security_group.example.id
 }
 
-# Public IP
-resource "azurerm_public_ip" "example" {
-  name                = "example-public-ip"
-  location            = azurerm_resource_group.example.location
+# Module for Virtual Machine Node Creation
+module "nodes" {
+  source = "./vm-node"
+
+  for_each = {
+    master  = "10.0.2.10"
+    worker1 = "10.0.2.11"
+    worker2 = "10.0.2.12"
+  }
+
+  name                = each.key
+  ip_address          = each.value
   resource_group_name = azurerm_resource_group.example.name
-  allocation_method   = "Static"
-  sku                 = "Standard"
-}
-
-# Network Interface
-resource "azurerm_network_interface" "example" {
-  name                = "exampleni"
   location            = azurerm_resource_group.example.location
-  resource_group_name = azurerm_resource_group.example.name
-
-  ip_configuration {
-    name                          = "internal"
-    subnet_id                     = azurerm_subnet.example.id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.example.id
-  }
+  subnet_id           = azurerm_subnet.example.id
+  admin_username      = var.admin_username
+  admin_password      = var.admin_password
+  vm_size             = var.vm_size
 }
 
-# Linux Virtual Machine
-resource "azurerm_linux_virtual_machine" "example" {
-  name                            = var.vm_name
-  location                        = azurerm_resource_group.example.location
-  resource_group_name             = azurerm_resource_group.example.name
-  size                            = var.vm_size
-  admin_username                  = var.admin_username
-  admin_password                  = var.admin_password
-  disable_password_authentication = false
-  network_interface_ids = [
-    azurerm_network_interface.example.id
-  ]
-
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
-  }
-
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts"
-    version   = "latest"
-  }
-}
